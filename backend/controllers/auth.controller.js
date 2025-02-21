@@ -3,6 +3,7 @@ import { generateTokenAndSetCookie } from "../lib/utils/generateToken.js";
 
 import bcrypt from "bcryptjs";
 
+// @desc    Register a new user
 export const signup = async (req, res) => {
    try{
     const {fullName, username, email, password} = req.body;
@@ -20,6 +21,10 @@ export const signup = async (req, res) => {
     const existingEmail = await User.findOne({email});
     if(existingEmail){
         return res.status(400).json({error: "Email already exists"});
+    }
+
+    if(password.length < 6){
+        return res.status(400).json({error: "Password must be at least 6 characters long"});
     }
 
     //hash password
@@ -59,15 +64,44 @@ export const signup = async (req, res) => {
    }
 }
 
+// @desc    Login a user
 export const login = async (req, res) => {
-    res.json({
-        data: "You hit the login endpoint"
-    })
+    try{
+    const {username, password} = req.body;
+    const user = await User.findOne({username});
+    const isPasswordCorrect = await bcrypt.compare(password, user?.password || "");
+
+    if(!user || !isPasswordCorrect){
+        return res.status(400).json({error: "Incorrect username or password"});
+    }
+
+    generateTokenAndSetCookie(user._id, res);
+
+    res.status(200).json({ 
+        _id: user._id,
+        username: user.username,
+        email: user.email,
+        fullName: user.fullName,
+        followers: user.followers,
+        following: user.following,
+        profileImg: user.profileImg,
+        bio: user.bio,
+        link: user.link,
+    });
+}catch(error){
+    console.error(`Error: ${error.message}`);
+    res.status(500).json({error: "Internal Server error"});
+}
 }
 
+// @desc    Logout a user
 export const logout = async (req, res) => {
-    res.json({
-        data: "You hit the logout endpoint"
-    })
+   try{
+    res.clearCookie("token");
+    res.status(200).json({message: "Logged out successfully"});
+   }catch(error){
+       console.error(`Error: ${error.message}`);
+       res.status(500).json({error: "Internal Server error"});
+   }
 }
 
